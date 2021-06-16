@@ -31,15 +31,21 @@ bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, i
     msg.event = event;
     msg.cb = p_cback;
 
-    if (param_len == 0) {
+    if (param_len == 0) 
+    {
         return bt_app_send_msg(&msg);
-    } else if (p_params && param_len > 0) {
-        if ((msg.param = malloc(param_len)) != NULL) {
+    } 
+    else if (p_params && param_len > 0) 
+    {
+        if ((msg.param = malloc(param_len)) != NULL) 
+        {
             memcpy(msg.param, p_params, param_len);
             /* check if caller has provided a copy callback to do the deep copy */
-            if (p_copy_cback) {
+            if (p_copy_cback) 
+            {
                 p_copy_cback(&msg, msg.param, p_params);
             }
+
             return bt_app_send_msg(&msg);
         }
     }
@@ -49,20 +55,24 @@ bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void *p_params, i
 
 static bool bt_app_send_msg(bt_app_msg_t *msg)
 {
-    if (msg == NULL) {
+    if (msg == NULL) 
+    {
         return false;
     }
 
-    if (xQueueSend(s_bt_app_task_queue, msg, 10 / portTICK_RATE_MS) != pdTRUE) {
+    if (xQueueSend(s_bt_app_task_queue, msg, 10 / portTICK_RATE_MS) != pdTRUE) 
+    {
         ESP_LOGE(BT_APP_CORE_TAG, "%s xQueue send failed", __func__);
         return false;
     }
+
     return true;
 }
 
 static void bt_app_work_dispatched(bt_app_msg_t *msg)
 {
-    if (msg->cb) {
+    if (msg->cb) 
+    {
         msg->cb(msg->event, msg->param);
     }
 }
@@ -70,19 +80,24 @@ static void bt_app_work_dispatched(bt_app_msg_t *msg)
 static void bt_app_task_handler(void *arg)
 {
     bt_app_msg_t msg;
-    for (;;) {
-        if (pdTRUE == xQueueReceive(s_bt_app_task_queue, &msg, (portTickType)portMAX_DELAY)) {
+    for (;;) 
+    {
+        if (pdTRUE == xQueueReceive(s_bt_app_task_queue, &msg, (portTickType)portMAX_DELAY)) 
+        {
             ESP_LOGD(BT_APP_CORE_TAG, "%s, sig 0x%x, 0x%x", __func__, msg.sig, msg.event);
-            switch (msg.sig) {
-            case BT_APP_SIG_WORK_DISPATCH:
-                bt_app_work_dispatched(&msg);
-                break;
-            default:
-                ESP_LOGW(BT_APP_CORE_TAG, "%s, unhandled sig: %d", __func__, msg.sig);
-                break;
+
+            switch (msg.sig) 
+            {
+                case BT_APP_SIG_WORK_DISPATCH:
+                    bt_app_work_dispatched(&msg);
+                    break;
+                default:
+                    ESP_LOGW(BT_APP_CORE_TAG, "%s, unhandled sig: %d", __func__, msg.sig);
+                    break;
             } // switch (msg.sig)
 
-            if (msg.param) {
+            if (msg.param) 
+            {
                 free(msg.param);
             }
         }
@@ -98,11 +113,13 @@ void bt_app_task_start_up(void)
 
 void bt_app_task_shut_down(void)
 {
-    if (s_bt_app_task_handle) {
+    if (s_bt_app_task_handle) 
+    {
         vTaskDelete(s_bt_app_task_handle);
         s_bt_app_task_handle = NULL;
     }
-    if (s_bt_app_task_queue) {
+    if (s_bt_app_task_queue) 
+    {
         vQueueDelete(s_bt_app_task_queue);
         s_bt_app_task_queue = NULL;
     }
@@ -114,9 +131,12 @@ static void bt_i2s_task_handler(void *arg)
     size_t item_size = 0;
     size_t bytes_written = 0;
 
-    for (;;) {
+    for (;;) 
+    {
         data = (uint8_t *)xRingbufferReceive(s_ringbuf_i2s, &item_size, (portTickType)portMAX_DELAY);
-        if (item_size != 0){
+
+        if (item_size != 0)
+        {
             i2s_write(0, data, item_size, &bytes_written, portMAX_DELAY);
             vRingbufferReturnItem(s_ringbuf_i2s,(void *)data);
         }
@@ -126,7 +146,9 @@ static void bt_i2s_task_handler(void *arg)
 void bt_i2s_task_start_up(void)
 {
     s_ringbuf_i2s = xRingbufferCreate(8 * 1024, RINGBUF_TYPE_BYTEBUF);
-    if(s_ringbuf_i2s == NULL){
+
+    if (s_ringbuf_i2s == NULL)
+    {
         return;
     }
 
@@ -136,12 +158,14 @@ void bt_i2s_task_start_up(void)
 
 void bt_i2s_task_shut_down(void)
 {
-    if (s_bt_i2s_task_handle) {
+    if (s_bt_i2s_task_handle) 
+    {
         vTaskDelete(s_bt_i2s_task_handle);
         s_bt_i2s_task_handle = NULL;
     }
 
-    if (s_ringbuf_i2s) {
+    if (s_ringbuf_i2s) 
+    {
         vRingbufferDelete(s_ringbuf_i2s);
         s_ringbuf_i2s = NULL;
     }
@@ -150,9 +174,12 @@ void bt_i2s_task_shut_down(void)
 size_t write_ringbuf(const uint8_t *data, size_t size)
 {
     BaseType_t done = xRingbufferSend(s_ringbuf_i2s, (void *)data, size, (portTickType)portMAX_DELAY);
-    if(done){
+    if(done)
+    {
         return size;
-    } else {
+    } 
+    else 
+    {
         return 0;
     }
 }
