@@ -25,22 +25,34 @@ enum {
 };
 
 /* handler for bluetooth stack enabled events */
-static void bt_av_hdl_stack_evt(uint16_t event, void *p_param);
+static void bt_av_hdl_stack_evt (uint16_t event, void *p_param);
 
 
-void app_main(void)
+void app_main (void)
 {
-    /* Initialize NVS — it is used to store PHY calibration data */
-    esp_err_t err = nvs_flash_init();
+    /* 
+     * Initialize NVS — it is used to store PHY calibration data 
+     * Non-volatile storage
+     */
+    esp_err_t err = nvs_flash_init ();
 
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) 
     {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
+        ESP_ERROR_CHECK (nvs_flash_erase ());
+        err = nvs_flash_init ();
     }
 
-    ESP_ERROR_CHECK(err);
+    /*
+     * Macro ESP_ERROR_CHECK () được sử dụng để kiểm tra mã lỗi 
+     * và kết thúc chương trình trong trường hợp mã không phải là ESP_OK
+     */
+    ESP_ERROR_CHECK (err);
 
+
+    /*
+     * Cấu hình một master i2s
+     * là giao thức truyền thông đồng bộ được sử dụng trong truyền audio giữa các thiết bị audio số 
+     */
     i2s_config_t i2s_config = {
 #ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
         .mode = I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_DAC_BUILT_IN,
@@ -58,10 +70,10 @@ void app_main(void)
     };
 
 
-    i2s_driver_install(0, &i2s_config, 0, NULL);
+    i2s_driver_install (0, &i2s_config, 0, NULL);
 #ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
-    i2s_set_dac_mode(I2S_DAC_CHANNEL_BOTH_EN);
-    i2s_set_pin(0, NULL);
+    i2s_set_dac_mode (I2S_DAC_CHANNEL_BOTH_EN);
+    i2s_set_pin (0, NULL);
 #else
     i2s_pin_config_t pin_config = {
         .bck_io_num = CONFIG_EXAMPLE_I2S_BCK_PIN,
@@ -70,48 +82,62 @@ void app_main(void)
         .data_in_num = -1                                                       //Not used
     };
 
-    i2s_set_pin(0, &pin_config);
+    i2s_set_pin (0, &pin_config);
 #endif
 
 
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
+    /*
+     * kiểm tra xem bộ nhớ điều khiển đã được giải phóng ở chế độ bluetooth chưa
+     * Nếu bluetooth đang chạy thì ESP_BT_MODE_BLE = 0x01
+     * Nếu bluetooth không chạy thì ESP_BT_MODE_IDLE = 0x00
+     * 
+     */
+    ESP_ERROR_CHECK (esp_bt_controller_mem_release (ESP_BT_MODE_BLE));
 
-    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    /*
+     * tạo biến bt_cfg kiểu esp_bt_controller_congif_t cho việc điều khiển bluetooth 
+     */
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT ();
 
-    if ((err = esp_bt_controller_init(&bt_cfg)) != ESP_OK) 
+    /*
+     * kiểm tra lại bộ điều khiển bluetooth đã được tạo hay chưa và
+     * thông báo nếu xảy ra vấn đề lỗi nào 
+     */
+    if ((err = esp_bt_controller_init (&bt_cfg)) != ESP_OK) 
     {
-        ESP_LOGE(BT_AV_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(err));
+        ESP_LOGE (BT_AV_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name (err));
         return;
     }
 
-    if ((err = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)) != ESP_OK) 
+    if ((err = esp_bt_controller_enable (ESP_BT_MODE_CLASSIC_BT)) != ESP_OK) 
     {
-        ESP_LOGE(BT_AV_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(err));
+        ESP_LOGE (BT_AV_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name (err));
         return;
     }
 
-    if ((err = esp_bluedroid_init()) != ESP_OK) 
+    if ((err = esp_bluedroid_init ()) != ESP_OK) 
     {
-        ESP_LOGE(BT_AV_TAG, "%s initialize bluedroid failed: %s\n", __func__, esp_err_to_name(err));
+        ESP_LOGE (BT_AV_TAG, "%s initialize bluedroid failed: %s\n", __func__, esp_err_to_name (err));
         return;
     }
 
-    if ((err = esp_bluedroid_enable()) != ESP_OK) {
-        ESP_LOGE(BT_AV_TAG, "%s enable bluedroid failed: %s\n", __func__, esp_err_to_name(err));
+    if ((err = esp_bluedroid_enable()) != ESP_OK) 
+    {
+        ESP_LOGE (BT_AV_TAG, "%s enable bluedroid failed: %s\n", __func__, esp_err_to_name (err));
         return;
     }
 
     /* create application task */
-    bt_app_task_start_up();
+    bt_app_task_start_up ();
 
     /* Bluetooth device name, connection mode and profile set up */
-    bt_app_work_dispatch(bt_av_hdl_stack_evt, BT_APP_EVT_STACK_UP, NULL, 0, NULL);
+    bt_app_work_dispatch (bt_av_hdl_stack_evt, BT_APP_EVT_STACK_UP, NULL, 0, NULL);
 
 #if (CONFIG_BT_SSP_ENABLED == true)
     /* Set default parameters for Secure Simple Pairing */
     esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
     esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
-    esp_bt_gap_set_security_param(param_type, &iocap, sizeof(uint8_t));
+    esp_bt_gap_set_security_param (param_type, &iocap, sizeof (uint8_t));
 #endif
 
     /*
@@ -125,7 +151,7 @@ void app_main(void)
     pin_code[2] = '3';
     pin_code[3] = '4';
 
-    esp_bt_gap_set_pin(pin_type, 4, pin_code);
+    esp_bt_gap_set_pin (pin_type, 4, pin_code);
 
 }
 
@@ -137,36 +163,36 @@ void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
         {
             if (param->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS) 
             {
-                ESP_LOGI(BT_AV_TAG, "authentication success: %s", param->auth_cmpl.device_name);
-                esp_log_buffer_hex(BT_AV_TAG, param->auth_cmpl.bda, ESP_BD_ADDR_LEN);
+                ESP_LOGI (BT_AV_TAG, "authentication success: %s", param->auth_cmpl.device_name);
+                esp_log_buffer_hex (BT_AV_TAG, param->auth_cmpl.bda, ESP_BD_ADDR_LEN);
             } 
             else 
             {
-                ESP_LOGE(BT_AV_TAG, "authentication failed, status:%d", param->auth_cmpl.stat);
+                ESP_LOGE (BT_AV_TAG, "authentication failed, status:%d", param->auth_cmpl.stat);
             }
             break;
-         }
+        }
 
 #if (CONFIG_BT_SSP_ENABLED == true)
     case ESP_BT_GAP_CFM_REQ_EVT:
-        ESP_LOGI(BT_AV_TAG, "ESP_BT_GAP_CFM_REQ_EVT Please compare the numeric value: %d", param->cfm_req.num_val);
-        esp_bt_gap_ssp_confirm_reply(param->cfm_req.bda, true);
+        ESP_LOGI (BT_AV_TAG, "ESP_BT_GAP_CFM_REQ_EVT Please compare the numeric value: %d", param->cfm_req.num_val);
+        esp_bt_gap_ssp_confirm_reply (param->cfm_req.bda, true);
         break;
     case ESP_BT_GAP_KEY_NOTIF_EVT:
-        ESP_LOGI(BT_AV_TAG, "ESP_BT_GAP_KEY_NOTIF_EVT passkey:%d", param->key_notif.passkey);
+        ESP_LOGI (BT_AV_TAG, "ESP_BT_GAP_KEY_NOTIF_EVT passkey:%d", param->key_notif.passkey);
         break;
     case ESP_BT_GAP_KEY_REQ_EVT:
-        ESP_LOGI(BT_AV_TAG, "ESP_BT_GAP_KEY_REQ_EVT Please enter passkey!");
+        ESP_LOGI (BT_AV_TAG, "ESP_BT_GAP_KEY_REQ_EVT Please enter passkey!");
         break;
 #endif
 
     case ESP_BT_GAP_MODE_CHG_EVT:
-        ESP_LOGI(BT_AV_TAG, "ESP_BT_GAP_MODE_CHG_EVT mode:%d", param->mode_chg.mode);
+        ESP_LOGI (BT_AV_TAG, "ESP_BT_GAP_MODE_CHG_EVT mode:%d", param->mode_chg.mode);
         break;
 
         default: 
         {
-            ESP_LOGI(BT_AV_TAG, "event: %d", event);
+            ESP_LOGI (BT_AV_TAG, "event: %d", event);
             break;
         }
     }
@@ -174,42 +200,43 @@ void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
     return;
 }
 
-static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
+static void bt_av_hdl_stack_evt (uint16_t event, void *p_param)
 {
-    ESP_LOGD(BT_AV_TAG, "%s evt %d", __func__, event);
+    ESP_LOGD (BT_AV_TAG, "%s evt %d", __func__, event);
     switch (event) 
     {
         case BT_APP_EVT_STACK_UP: 
         {
             /* set up device name */
             char *dev_name = "ESP_SPEAKER";
-            esp_bt_dev_set_device_name(dev_name);
+            esp_bt_dev_set_device_name (dev_name);
 
-            esp_bt_gap_register_callback(bt_app_gap_cb);
+            esp_bt_gap_register_callback (bt_app_gap_cb);
 
             /* initialize AVRCP controller */
-            esp_avrc_ct_init();
-            esp_avrc_ct_register_callback(bt_app_rc_ct_cb);
+            esp_avrc_ct_init ();
+            esp_avrc_ct_register_callback (bt_app_rc_ct_cb);
+
             /* initialize AVRCP target */
-            assert (esp_avrc_tg_init() == ESP_OK);
-            esp_avrc_tg_register_callback(bt_app_rc_tg_cb);
+            assert (esp_avrc_tg_init () == ESP_OK);
+            esp_avrc_tg_register_callback (bt_app_rc_tg_cb);
 
             esp_avrc_rn_evt_cap_mask_t evt_set = {0};
-            esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
-            assert(esp_avrc_tg_set_rn_evt_cap(&evt_set) == ESP_OK);
+            esp_avrc_rn_evt_bit_mask_operation (ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
+            assert (esp_avrc_tg_set_rn_evt_cap (&evt_set) == ESP_OK);
 
             /* initialize A2DP sink */
-            esp_a2d_register_callback(&bt_app_a2d_cb);
-            esp_a2d_sink_register_data_callback(bt_app_a2d_data_cb);
-            esp_a2d_sink_init();
+            esp_a2d_register_callback (&bt_app_a2d_cb);
+            esp_a2d_sink_register_data_callback (bt_app_a2d_data_cb);
+            esp_a2d_sink_init ();
 
             /* set discoverable and connectable mode, wait to be connected */
-            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+            esp_bt_gap_set_scan_mode (ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
             break;
         }
-        
+
         default:
-            ESP_LOGE(BT_AV_TAG, "%s unhandled evt %d", __func__, event);
+            ESP_LOGE (BT_AV_TAG, "%s unhandled evt %d", __func__, event);
             break;
     }
 }
