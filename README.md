@@ -40,7 +40,7 @@ In the terminal where you are going to use ESP-IDF, run:
 Step 5. Start a Project
 Linux and macOS
 cd ~/esp
-git clone https://github/Ducndc/02_Project_Embedded_System
+git clone https://github.com/Ducndc/02_Project_Embedded_System.git
 
 Step 6. Connect Your Device
 Now connect your ESP32 board to the computer and check under what serial port the board is visible.
