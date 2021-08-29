@@ -35,9 +35,17 @@ void app_main (void)
      * Non-volatile storage
      */
     esp_err_t err = nvs_flash_init ();
+    /* 
+     * ESP_ERR_NVS_NO_FREE_PAGES NVS partition doesn’t contain any empty pages. 
+     * This may happen if NVS partition was truncated. 
+     * Erase the whole partition and call nvs_flash_init again.
+     * ESP_ERR_NVS_NEW_VERSION_FOUND NVS partition contains data in new format 
+     * and cannot be recognized by this version of code.
+     */
 
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) 
     {
+        //Erase NVS partition.
         ESP_ERROR_CHECK (nvs_flash_erase ());
         err = nvs_flash_init ();
     }
@@ -51,7 +59,8 @@ void app_main (void)
 
     /*
      * Cấu hình một master i2s
-     * là giao thức truyền thông đồng bộ được sử dụng trong truyền audio giữa các thiết bị audio số 
+     * Là giao thức truyền thông đồng bộ được sử dụng trong 
+     * truyền audio giữa các thiết bị audio số 
      */
     i2s_config_t i2s_config = {
 #ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
@@ -82,7 +91,7 @@ void app_main (void)
         .data_in_num = -1                                                       //Not used
     };
 
-    i2s_set_pin (0, &pin_config);
+    i2s_set_pin (0, &pin_config); //Set I2S pin number.
 #endif
 
 
@@ -90,7 +99,6 @@ void app_main (void)
      * kiểm tra xem bộ nhớ điều khiển đã được giải phóng ở chế độ bluetooth chưa
      * Nếu bluetooth đang chạy thì ESP_BT_MODE_BLE = 0x01
      * Nếu bluetooth không chạy thì ESP_BT_MODE_IDLE = 0x00
-     * 
      */
     ESP_ERROR_CHECK (esp_bt_controller_mem_release (ESP_BT_MODE_BLE));
 
